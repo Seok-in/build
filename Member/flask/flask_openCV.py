@@ -5,6 +5,7 @@ import pymysql
 import json
 
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 import cv2
 import light_remover as lr
 import datetime
@@ -28,6 +29,7 @@ db = pymysql.connect(host='54.180.134.240',
 cursor = db.cursor()
 
 app = Flask(__name__)
+cors = CORS(app, resources={r"/flask/*": {"origins": "*"}})
 
 # dlib이용 얼굴을 감지하기
 detector = dlib.get_frontal_face_detector()
@@ -175,14 +177,13 @@ def upload_file():
                 totalRoom[roomId][nickName][0] = 0
 
                 # DB INSERT
-                sql = """INSERT INTO WatchMe.penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%s', '%s', '%s');""" % (
+                sql = """INSERT INTO penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%s', '%s', '%s');""" % (
                     datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), nickName, roomId, "MODE2");
 
                 cursor.execute(sql)
                 db.commit();
 
-                sql = """SELECT """
-
+                sql = """SELECT * FROM  """
 
                 result.update({"code":205 , "responseMessage": "CLOSE PENALTY OCCURRED",
                                "PenaltyCount": totalRoom[roomId][nickName][1]})
