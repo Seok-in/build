@@ -121,13 +121,13 @@ def upload_file():
 
     if (totalRoom.get(roomId) == None):
         totalRoom[roomId] = {}
-        totalRoom[roomId][memberId] = [0, 0, 0]
+        totalRoom[roomId][nickName] = [0, 0, 0]
 
-    elif(totalRoom.get(roomId).get(memberId) == None):
-        totalRoom[roomId][memberId] = [0, 0, 0]
+    elif(totalRoom.get(roomId).get(nickName) == None):
+        totalRoom[roomId][nickName] = [0, 0, 0]
 
     print(totalRoom)
-    print(totalRoom[roomId][memberId][0])
+    print(totalRoom[roomId][nickName][0])
 
     f = request.files['file']
     img2 = cv2.imdecode(numpy.fromstring(f.read(), numpy.uint8), cv2.IMREAD_COLOR)
