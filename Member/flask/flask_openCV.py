@@ -7,22 +7,25 @@ import json
 from flask import Flask, render_template, request, jsonify
 import cv2
 import light_remover as lr
+import datetime
 from scipy.spatial import distance as dist
 
-
 from imutils import face_utils
+
 from threading import Thread
 
+time.strftime('%Y-%m-%d %H:%M:%S')
+
 # # databse 접근
-# db = pymysql.connect(host='43.200.6.20',
-#                      port=3306,
-#                      user='seokin',
-#                      password='12345',
-#                      db='watchme',
-#                      charset='utf8')
-#
+db = pymysql.connect(host='54.180.134.240',
+                     port=3306,
+                     user='seokin',
+                     password='ghdtjrdls777!',
+                     db='WatchMe',
+                     charset='utf8')
+
 # # database를 사용하기 위한 cursor를 세팅합니다.
-# cursor = db.cursor()
+cursor = db.cursor()
 
 app = Flask(__name__)
 
@@ -31,12 +34,17 @@ detector = dlib.get_frontal_face_detector()
 # dlib이용 얼굴을 각각의 좌표로 바꿔주기
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
-cellphoneCount = {}
-closeEyeCount = {}
-totalCount = {}
+totalRoom = {}
+
 net = cv2.dnn.readNet("yolov3-tiny.weights", "yolov3-tiny.cfg")
 layer_names = net.getLayerNames()
 output_layers = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
+
+(lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
+(rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
+OPEN_EAR = 0
+EAR_THRESH = 0
+classes = []
 
 
 def eye_aspect_ratio(eye):
@@ -66,12 +74,6 @@ def init_close_ear():
 
 
 
-
-(lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
-(rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
-OPEN_EAR = 0
-EAR_THRESH = 0
-classes = []
 with open("coco.names", "r") as f:
     classes = [line.strip() for line in f.readlines()]
 
@@ -80,110 +82,162 @@ with open("coco.names", "r") as f:
 def render_file():
     return render_template('upload.html')
 
+@app.route('/test', methods=['POST'])
+def test():
+    # sql = """select email from member where member_id = 1;"""
+    # cursor.execute(sql)
+    # rows = cursor.fetchone()
+    # print(rows)
+    # return ({"email": rows})
+
+    # sql = """insert into penalty_log(member_id,room_id,status) values (1, 1, 'MODE1')"""
+    # cursor.execute(sql)
+    # print(sql)
+    # print(cursor.execute(sql, (1, 1, 'MODE1')))
+
+    sql = """INSERT INTO WatchMe.penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%d', '%d', '%s');""" % (
+        datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 1, 1, "MODE3");
+    print(sql)
+
+    cursor.execute(sql)
+    db.commit();
+
+    print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+    # cursor.execute(sql)
+    # db.commit();
+    return ({"test": "test"})
 
 # 파일 업로드 처리
 @app.route('/openCV', methods=['POST'])
 def upload_file():
 
     result = {}
-    memberId = request.form.get("member_id")
-    roomId = request.form.get("room_id")
-    mode1 = request.form.get("mode1")
-    mode2 = request.form.get("mode2")
-    mode3 = request.form.get("mode3")
-    mode4 = request.form.get("mode4")
+    nickName = request.form.get("nickName")
+    roomId = request.form.get("roomId")
+    mode = request.form.get("MODE")
 
-    if (closeEyeCount.get(memberId) == None):
-        closeEyeCount[memberId] = 0;
+    if (totalRoom.get(roomId) == None):
+        totalRoom[roomId] = {}
+        totalRoom[roomId][memberId] = [0, 0, 0]
 
-        f = request.files['file']
-        img2 = cv2.imdecode(numpy.fromstring(f.read(), numpy.uint8), cv2.IMREAD_UNCHANGED)
+    elif(totalRoom.get(roomId).get(memberId) == None):
+        totalRoom[roomId][memberId] = [0, 0, 0]
 
-        if(mode1 != None):
-            return ({"responseCode": 200})
+    print(totalRoom)
+    print(totalRoom[roomId][memberId][0])
 
-        # 졸음 인식
-        if(mode2 != None or mode4 != None):
+    f = request.files['file']
+    img2 = cv2.imdecode(numpy.fromstring(f.read(), numpy.uint8), cv2.IMREAD_COLOR)
 
-            # 조명제거
-            L, gray = lr.light_removing(img2)
+    if (mode == "MODE1"):
+        return ({"responseCode": 200})
 
-            # 그레이스케일링
-            rects = detector(gray, 0)
+    # 졸음 인식
+    if (mode == "MODE2"):
 
-            # 화면 감지
-            for rect in rects:
+        # 조명제거
+        L, gray = lr.light_removing(img2)
 
-                shape = predictor(gray, rect)
-                shape = face_utils.shape_to_np(shape)
+        # 그레이스케일링
+        rects = detector(gray, 0)
 
-                leftEye = shape[lStart:lEnd]
-                rightEye = shape[rStart:rEnd]
-                leftEAR = eye_aspect_ratio(leftEye)
-                rightEAR = eye_aspect_ratio(rightEye)
+        # 화면 감지
+        for rect in rects:
 
-                # (leftEAR + rightEAR) / 2 => both_ear.
-                both_ear = (leftEAR + rightEAR) * 500  # I multiplied by 1000 to enlarge the scope.
+            shape = predictor(gray, rect)
+            shape = face_utils.shape_to_np(shape)
 
-                leftEyeHull = cv2.convexHull(leftEye)
-                rightEyeHull = cv2.convexHull(rightEye)
-                cv2.drawContours(img2, [leftEyeHull], -1, (0, 255, 0), 1)
-                cv2.drawContours(img2, [rightEyeHull], -1, (0, 255, 0), 1)
+            leftEye = shape[lStart:lEnd]
+            rightEye = shape[rStart:rEnd]
+            leftEAR = eye_aspect_ratio(leftEye)
+            rightEAR = eye_aspect_ratio(rightEye)
 
-                print(both_ear)
-                EAR_THRESH = 150
-                if both_ear < EAR_THRESH:
-                    closeEyeCount[memberId] = closeEyeCount.get(memberId) + 1;
+            # (leftEAR + rightEAR) / 2 => both_ear.
+            both_ear = (leftEAR + rightEAR) * 500  # I multiplied by 1000 to enlarge the scope.
 
-                else:
-                    closeEyeCount[memberId] = 0;
+            leftEyeHull = cv2.convexHull(leftEye)
+            rightEyeHull = cv2.convexHull(rightEye)
+            cv2.drawContours(img2, [leftEyeHull], -1, (0, 255, 0), 1)
+            cv2.drawContours(img2, [rightEyeHull], -1, (0, 255, 0), 1)
 
-            if closeEyeCount[memberId] > 10:
-                if (totalCount.get(memberId) == None):
-                    totalCount[memberId] = 0
-                totalCount[memberId] = totalCount.get(memberId) + 1
+            print(both_ear)
+            EAR_THRESH = 150
+            if both_ear < EAR_THRESH:
+                totalRoom[roomId][nickName][0] += 1
 
-                closeEyeCount[memberId] = 0
+            else:
+                totalRoom[roomId][nickName][0] = 0
 
-                # DB UPDATE
-                # sql="""UPDATE watchme.penaltys set MODE1 = MODE1 + 1 WHERE member_id = %d AND room_id = %d;""" % (memberId, roomId)
-                # cursor.execute(sql)
+            if totalRoom[roomId][nickName][0] > 10:
+                totalRoom[roomId][nickName][1] += 1
 
-                result.update({"CloseDetect": 205, "responseMessage": "CLOSE PENALTY OCCURRED", "MODE": "MODE2","PenaltyCount": totalCount[memberId]})
-            else :
-                result.update({"CloseDetect": 200})
+                totalRoom[roomId][nickName][0] = 0
 
-        # 사물 인식 yolo v3 - tiny
-        if(mode3 != None or mode4 != None):
-            img = cv2.resize(img2, None, fx=0.4, fy=0.4)
-            height, width, channels = img.shape
+                # DB INSERT
+                sql = """INSERT INTO WatchMe.penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%s', '%s', '%s');""" % (
+                    datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), nickName, roomId, "MODE2");
 
-            blob = cv2.dnn.blobFromImage(img, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
-            net.setInput(blob)
-            outs = net.forward(output_layers)
+                cursor.execute(sql)
+                db.commit();
 
-            class_ids = []
-            confidences = []
+                sql = """SELECT """
 
-            for out in outs:
-                for detection in out:
-                    scores = detection[5:]
-                    class_id = numpy.argmax(scores)
-                    confidence = scores[class_id]
-                    if confidence > 0.5:
-                        # Object detected
-                        center_x = int(detection[0] * width)
-                        center_y = int(detection[1] * height)
-                        w = int(detection[2] * width)
-                        h = int(detection[3] * height)
 
-                        confidences.append(float(confidence))
-                        class_ids.append(class_id)
-                        print(str(classes[class_id]))
+                result.update({"code":205 , "responseMessage": "CLOSE PENALTY OCCURRED",
+                               "PenaltyCount": totalRoom[roomId][nickName][1]})
+                return result
+            else:
+                result.update({"code": 200})
+
+    # 사물 인식 yolo v3 - tiny
+    if (mode == "MODE3"):
+        # img = cv2.resize(img2, None, fx=0.4, fy=0.4)
+        img = img2
+        height, width, channels = img.shape
+        blob = cv2.dnn.blobFromImage(img, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
+
+        net.setInput(blob)
+
+        outs = net.forward(output_layers)
+        class_ids = []
+        confidences = []
+        is_checked = 0
+
+        for out in outs:
+            for detection in out:
+                scores = detection[5:]
+                class_id = numpy.argmax(scores)
+                confidence = scores[class_id]
+                if confidence > 0.5:
+                    # Object detected
+                    center_x = int(detection[0] * width)
+                    center_y = int(detection[1] * height)
+                    w = int(detection[2] * width)
+                    h = int(detection[3] * height)
+
+                    confidences.append(float(confidence))
+                    class_ids.append(class_id)
+                    print(str(classes[class_id]))
+
+                    if str(classes[class_id]) == 'cellphone':
+                        # 핸드폰 감지
+                        totalRoom[roomId][nickName][2] += 1
+
+                        # DB INSERT
+                        sql = """INSERT INTO WatchMe.penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%s', '%s', '%s');""" % (
+                            datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), nickName, roomId, "MODE3");
+                        cursor.execute(sql)
+                        db.commit();
+                        result.update({"Code": 205, "responseMessage": "CELL PHONE PENALTY OCCURRED",
+                                       "PenaltyCellPhoneCount": totalRoom[roomId][nickName][2]})
+                        return result
+
+
             result.update({"ObjectDetect": 200})
 
-    return result
 
+    return result
 if __name__ == '__main__':
     # 서버 실행
     app.run(debug=True)
