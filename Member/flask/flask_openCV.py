@@ -97,14 +97,20 @@ def test():
     # print(sql)
     # print(cursor.execute(sql, (1, 1, 'MODE1')))
 
-    sql = """INSERT INTO WatchMe.penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%d', '%d', '%s');""" % (
-        datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 1, 1, "MODE3");
-    print(sql)
+    # sql = """INSERT INTO WatchMe.penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%d', '%d', '%s');""" % (
+    #     datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 1, 1, "MODE3");
+    # print(sql)
+    #
+    # cursor.execute(sql)
+    # db.commit();
+    #
+    # print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    # f = request.files
+    # print(f)
 
-    cursor.execute(sql)
-    db.commit();
+    data = request.get_json(force=True)
+    print(data)
 
-    print(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     # cursor.execute(sql)
     # db.commit();
@@ -115,9 +121,21 @@ def test():
 def upload_file():
 
     result = {}
-    nickName = request.form.get("nickName")
-    roomId = request.form.get("roomId")
-    mode = request.form.get("MODE")
+
+    flaskDTO = request.form.get("flaskDTO")
+    # NONE
+    print(flaskDTO)
+
+    dict = json.loads(flaskDTO)
+
+    print(dict)
+
+    nickName = dict.get("nickName")
+    roomId = dict.get("roomId")
+    mode = dict.get("mode")
+
+    f = request.files['img']
+    img2 = cv2.imdecode(numpy.fromstring(f.read(), numpy.uint8), cv2.IMREAD_COLOR)
 
     if (totalRoom.get(roomId) == None):
         totalRoom[roomId] = {}
@@ -125,12 +143,6 @@ def upload_file():
 
     elif(totalRoom.get(roomId).get(nickName) == None):
         totalRoom[roomId][nickName] = [0, 0, 0]
-
-    print(totalRoom)
-    print(totalRoom[roomId][nickName][0])
-
-    f = request.files['file']
-    img2 = cv2.imdecode(numpy.fromstring(f.read(), numpy.uint8), cv2.IMREAD_COLOR)
 
     if (mode == "MODE1"):
         return ({"responseCode": 200})
@@ -177,16 +189,16 @@ def upload_file():
                 totalRoom[roomId][nickName][0] = 0
 
                 # DB INSERT
-                sql = """INSERT INTO penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%s', '%s', '%s');""" % (
-                    datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), nickName, roomId, "MODE2");
-
-                cursor.execute(sql)
-                db.commit();
-
-                sql = """SELECT * FROM  """
-
-                result.update({"code":205 , "responseMessage": "CLOSE PENALTY OCCURRED",
-                               "PenaltyCount": totalRoom[roomId][nickName][1]})
+                # sql = """INSERT INTO penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%s', '%s', '%s');""" % (
+                #     datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), nickName, roomId, "MODE2");
+                #
+                # cursor.execute(sql)
+                # db.commit();
+                #
+                # sql = """SELECT * FROM  """
+                #
+                # result.update({"code":205 , "responseMessage": "CLOSE PENALTY OCCURRED",
+                #                "PenaltyCount": totalRoom[roomId][nickName][1]})
                 return result
             else:
                 result.update({"code": 200})
@@ -225,11 +237,11 @@ def upload_file():
                         # 핸드폰 감지
                         totalRoom[roomId][nickName][2] += 1
 
-                        # DB INSERT
-                        sql = """INSERT INTO WatchMe.penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%s', '%s', '%s');""" % (
-                            datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), nickName, roomId, "MODE3");
-                        cursor.execute(sql)
-                        db.commit();
+                        # # DB INSERT
+                        # sql = """INSERT INTO WatchMe.penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%s', '%s', '%s');""" % (
+                        #     datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), nickName, roomId, "MODE3");
+                        # cursor.execute(sql)
+                        # db.commit();
                         result.update({"Code": 205, "responseMessage": "CELL PHONE PENALTY OCCURRED",
                                        "PenaltyCellPhoneCount": totalRoom[roomId][nickName][2]})
                         return result
