@@ -124,7 +124,7 @@ def penaltRecord(nickName, memberId, roomId):
     cursor = db.cursor()
     # 패널티 기록
     sql = """INSERT INTO penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%s', '%s', '%s');""" % (
-        datetime.now(timezone('Asia/Seoul')).strftime('%Y-%m-%d %H:%M:%S'), memberId, roomId, "MODE2");
+        datetime.datetime.now(timezone('Asia/Seoul')).strftime('%Y-%m-%d %H:%M:%S'), memberId, roomId, "MODE2");
     cursor.execute(sql)
     db.commit();
 
@@ -170,7 +170,7 @@ def penaltRecord(nickName, memberId, roomId):
         db.close();
         return 202
 
-    sql = """INSERT INTO point_log(`created_at`,`point_value`, `member_id`, `sprint_id`) VALUES ('%s', '%s', '%s', '%s')""" %  (datetime.atetime.now(timezone('Asia/Seoul')).strftime('%Y-%m-%d %H:%M:%S'), -1 * penalty, memberId, sprintId)
+    sql = """INSERT INTO point_log(`created_at`,`point_value`, `member_id`, `sprint_id`) VALUES ('%s', '%s', '%s', '%s')""" %  (datetime.datetime.atetime.now(timezone('Asia/Seoul')).strftime('%Y-%m-%d %H:%M:%S'), -1 * penalty, memberId, sprintId)
     cursor.execute(sql)
     db.commit();
     db.close();
