@@ -1,8 +1,10 @@
 import gc
-import sys
 import time
-import argparse
 import dlib
+# # databse 접근
+import pymysql
+
+
 
 import numpy
 import json
@@ -13,6 +15,7 @@ from flask_cors import CORS
 import cv2
 import light_remover as lr
 import datetime
+from pytz import timezone
 import torch
 from scipy.spatial import distance as dist
 
@@ -20,11 +23,13 @@ from imutils import face_utils
 
 from ErrorCode import CODE
 # from config import db
-from config import db
 from models.experimental import attempt_load
 from utils.datasets import letterbox
 from utils.general import check_img_size, non_max_suppression, scale_coords, set_logging
 from utils.torch_utils import select_device, time_synchronized, TracedModel
+
+
+my_snapshot = None
 
 # # database를 사용하기 위한 cursor를 세팅합니다.
 # cursor = db.cursor()
@@ -47,7 +52,7 @@ classes = []
 
 classes_to_filter = ['train']
 
-cursor = db.cursor()
+
 
 opt = {
     "weights": "yolov7-tiny.pt",  # Path to weights file default weights are for nano model
@@ -109,16 +114,17 @@ with open("coco.names", "r") as f:
     classes = [line.strip() for line in f.readlines()]
 
 
-# 업로드 HTML 렌더링
-@app.route('/upload')
-def render_file():
-    return render_template('upload.html')
-
-
 def penaltRecord(nickName, memberId, roomId):
+    db = pymysql.connect(host='54.180.134.240',
+                         port=3306,
+                         user='seokin',
+                         password='ghdtjrdls777!',
+                         db='WatchMe',
+                         charset='utf8')
+    cursor = db.cursor()
     # 패널티 기록
     sql = """INSERT INTO penalty_log(`created_at`,`member_id`, `room_id`, `status`) VALUES ('%s','%s', '%s', '%s');""" % (
-        datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), memberId, roomId, "MODE2");
+        datetime.now(timezone('Asia/Seoul')).strftime('%Y-%m-%d %H:%M:%S'), memberId, roomId, "MODE2");
     cursor.execute(sql)
     db.commit();
 
@@ -133,7 +139,9 @@ def penaltRecord(nickName, memberId, roomId):
             sql = """UPDATE member_room_log SET `status` = 'DELETE' WHERE(`member_id` = '%s') AND (`room_id` = '%s')""" % (memberId, roomId)
             cursor.execute(sql)
             db.commit();
+            db.close();
             return 202
+        db.close();
         return 205
 
     sprintId = row[0]
@@ -148,6 +156,7 @@ def penaltRecord(nickName, memberId, roomId):
     cursor.execute(sql)
     row = cursor.fetchone()
     if(row == None):
+        db.close();
         return 553
     else :
         count = row[0]
@@ -158,38 +167,28 @@ def penaltRecord(nickName, memberId, roomId):
         cursor.execute(sql)
         db.commit();
         # 강퇴 처리 보내기
+        db.close();
         return 202
 
-    sql = """INSERT INTO point_log(`created_at`,`point_value`, `member_id`, `sprint_id`) VALUES ('%s', '%s', '%s', '%s')""" % (datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), -1 * penalty, memberId, sprintId)
+    sql = """INSERT INTO point_log(`created_at`,`point_value`, `member_id`, `sprint_id`) VALUES ('%s', '%s', '%s', '%s')""" %  (datetime.atetime.now(timezone('Asia/Seoul')).strftime('%Y-%m-%d %H:%M:%S'), -1 * penalty, memberId, sprintId)
     cursor.execute(sql)
     db.commit();
-
+    db.close();
     # detect
     return 205
 
-
-@app.route('/test1', methods=['POST'])
-def test1():
-    print(request)
-    print(request.files)
-    files = request.files
-    flaskDTO = files.get('flaskDTO')
-    print(flaskDTO)
-
-    data = json.load(flaskDTO)
-
-    return {"CODE": 200}
-
-
-import tracemalloc
-
-tracemalloc.start()
-my_snapshot = None
 
 
 # 파일 업로드 처리
 @app.route('/openCV', methods=['POST'])
 def upload_file():
+    db = pymysql.connect(host='54.180.134.240',
+                         port=3306,
+                         user='seokin',
+                         password='ghdtjrdls777!',
+                         db='WatchMe',
+                         charset='utf8')
+    cursor = db.cursor()
     # # 값을 계속 사용해야 하므로 전역 변수에 저장한다
     # global my_snapshot
     # if not my_snapshot:
@@ -250,6 +249,7 @@ def upload_file():
     if(row == None):
         code = 504
         result.update({"code": code, "MESSAGE": CODE[code]})
+        db.close()
         return result
     memberId = row[0]
 
@@ -265,6 +265,7 @@ def upload_file():
     if (row == None):
         code = 522
         result.update({"code": code, "MESSAGE": CODE[code]})
+        db.close()
         return result
 
     code = 200
@@ -335,6 +336,7 @@ def upload_file():
         del gray
         gc.collect()
         result.update({"code": code, "MESSAGE": CODE[code]})
+        db.close()
         return result
 
     if mode == "MODE3":
@@ -368,6 +370,7 @@ def upload_file():
 
                     gc.collect()
                     result.update({"code": code, "MESSAGE": CODE[code]})
+                    db.close()
                     return result
             del pred
             gc.collect()
@@ -376,6 +379,7 @@ def upload_file():
     gc.collect()
 
     result.update({"code": code, "MESSAGE": CODE[code]})
+    db.close()
     return result
 
 
