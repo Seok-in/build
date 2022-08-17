@@ -280,6 +280,7 @@ def upload_file():
         totalRoom[roomId][nickName] = [0, 0, 0, 0]
 
     if (mode == "MODE1"):
+        db.close()
         return ({"responseCode": 200})
 
     # 졸음 인식
@@ -327,8 +328,9 @@ def upload_file():
                 totalRoom[roomId][nickName][0] = 0
                 code = penaltRecord(nickName, memberId, roomId)
                 result.update({"code": code, "MESSAGE": CODE[code]})
+                db.close()
                 return result
-            code = 205
+            code = 200
         print(totalRoom[roomId][nickName][0])
         print(totalRoom[roomId][nickName][1])
         del rects
